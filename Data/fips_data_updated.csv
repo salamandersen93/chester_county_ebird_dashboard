@@ -1,0 +1,68 @@
+index,state_name_abbreviation,state_name,state_fips_code,county_fips_code,county_code,county,county_name,fips_class_code,full_fips_code
+0,PA,Pennsylvania,42,039,20,Crawford,Crawford County,H1,US-PA-039
+1,PA,Pennsylvania,42,079,40,Luzerne ,Luzerne County,H1,US-PA-079
+2,PA,Pennsylvania,42,077,39,Lehigh ,Lehigh County,H1,US-PA-077
+3,PA,Pennsylvania,42,083,42,McKean,McKean County,H1,US-PA-083
+4,PA,Pennsylvania,42,089,45,Monroe,Monroe County,H1,US-PA-089
+5,PA,Pennsylvania,42,027,14,Centre,Centre County,H1,US-PA-027
+6,PA,Pennsylvania,42,041,21,Cumberland,Cumberland County,H1,US-PA-041
+7,PA,Pennsylvania,42,043,22,Dauphin,Dauphin County,H1,US-PA-043
+8,PA,Pennsylvania,42,045,23,Delaware,Delaware County,H1,US-PA-045
+9,PA,Pennsylvania,42,051,26,Fayette,Fayette County,H1,US-PA-051
+10,PA,Pennsylvania,42,073,37,Lawrence ,Lawrence County,H1,US-PA-073
+11,PA,Pennsylvania,42,081,41,Lycoming,Lycoming County,H1,US-PA-081
+12,PA,Pennsylvania,42,091,46,Montgomery,Montgomery County,H1,US-PA-091
+13,PA,Pennsylvania,42,093,47,Montour,Montour County,H1,US-PA-093
+14,PA,Pennsylvania,42,095,48,Northampton,Northampton County,H1,US-PA-095
+15,PA,Pennsylvania,42,047,24,Elk,Elk County,H1,US-PA-047
+16,PA,Pennsylvania,42,049,25,Erie,Erie County,H1,US-PA-049
+17,PA,Pennsylvania,42,075,38,Lebanon ,Lebanon County,H1,US-PA-075
+18,PA,Pennsylvania,42,007,4,Beaver,Beaver County,H1,US-PA-007
+19,PA,Pennsylvania,42,055,28,Franklin,Franklin County,H1,US-PA-055
+20,PA,Pennsylvania,42,057,29,Fulton,Fulton County,H1,US-PA-057
+21,PA,Pennsylvania,42,071,36,Lancaster,Lancaster County,H1,US-PA-071
+22,PA,Pennsylvania,42,085,43,Mercer,Mercer County,H1,US-PA-085
+23,PA,Pennsylvania,42,059,30,Greene,Greene County,H1,US-PA-059
+24,PA,Pennsylvania,42,061,31,Huntingdon,Huntingdon County,H1,US-PA-061
+25,PA,Pennsylvania,42,063,32,Indiana,Indiana County,H1,US-PA-063
+26,PA,Pennsylvania,42,065,33,Jefferson,Jefferson County,H1,US-PA-065
+27,PA,Pennsylvania,42,067,34,Juniata,Juniata County,H1,US-PA-067
+28,PA,Pennsylvania,42,069,35,Lackawanna,Lackawanna County,H1,US-PA-069
+29,PA,Pennsylvania,42,087,44,Mifflin,Mifflin County,H1,US-PA-087
+30,PA,Pennsylvania,42,097,49,Northumberland,Northumberland County,H1,US-PA-097
+31,PA,Pennsylvania,42,099,50,Perry,Perry County,H1,US-PA-099
+32,PA,Pennsylvania,42,101,51,Philadelphia,Philadelphia County,H6,US-PA-101
+33,PA,Pennsylvania,42,103,52,Pike,Pike County,H1,US-PA-103
+34,PA,Pennsylvania,42,105,53,Potter,Potter County,H1,US-PA-105
+35,PA,Pennsylvania,42,107,54,Schuylkill,Schuylkill County,H1,US-PA-107
+36,PA,Pennsylvania,42,109,55,Snyder,Snyder County,H1,US-PA-109
+37,PA,Pennsylvania,42,111,56,Somerset,Somerset County,H1,US-PA-111
+38,PA,Pennsylvania,42,113,57,Sullivan,Sullivan County,H1,US-PA-113
+39,PA,Pennsylvania,42,115,58,Susquehanna,Susquehanna County,H1,US-PA-115
+40,PA,Pennsylvania,42,117,59,Tioga,Tioga County,H1,US-PA-117
+41,PA,Pennsylvania,42,119,60,Union,Union County,H1,US-PA-119
+42,PA,Pennsylvania,42,121,61,Venango,Venango County,H1,US-PA-121
+43,PA,Pennsylvania,42,123,62,Warren,Warren County,H1,US-PA-123
+44,PA,Pennsylvania,42,125,63,Washington,Washington County,H1,US-PA-125
+45,PA,Pennsylvania,42,127,64,Wayne,Wayne County,H1,US-PA-127
+46,PA,Pennsylvania,42,129,65,Westmoreland,Westmoreland County,H1,US-PA-129
+47,PA,Pennsylvania,42,131,66,Wyoming,Wyoming County,H1,US-PA-131
+48,PA,Pennsylvania,42,133,67,York,York County,H1,US-PA-133
+49,PA,Pennsylvania,42,019,10,Butler,Butler County,H1,US-PA-019
+50,PA,Pennsylvania,42,021,11,Cambria,Cambria County,H1,US-PA-021
+51,PA,Pennsylvania,42,023,12,Cameron,Cameron County,H1,US-PA-023
+52,PA,Pennsylvania,42,025,13,Carbon,Carbon County,H1,US-PA-025
+53,PA,Pennsylvania,42,029,15,Chester,Chester County,H1,US-PA-029
+54,PA,Pennsylvania,42,031,16,Clarion,Clarion County,H1,US-PA-031
+55,PA,Pennsylvania,42,033,17,Clearfield,Clearfield County,H1,US-PA-033
+56,PA,Pennsylvania,42,035,18,Clinton,Clinton County,H1,US-PA-035
+57,PA,Pennsylvania,42,037,19,Columbia,Columbia County,H1,US-PA-037
+58,PA,Pennsylvania,42,053,27,Forest,Forest County,H1,US-PA-053
+59,PA,Pennsylvania,42,001,1,Adams,Adams County,H1,US-PA-001
+60,PA,Pennsylvania,42,003,2,Allegheny,Allegheny County,H1,US-PA-003
+61,PA,Pennsylvania,42,005,3,Armstrong,Armstrong County,H1,US-PA-005
+62,PA,Pennsylvania,42,009,5,Bedford,Bedford County,H1,US-PA-009
+63,PA,Pennsylvania,42,011,6,Berks ,Berks County,H1,US-PA-011
+64,PA,Pennsylvania,42,013,7,Blair,Blair County,H1,US-PA-013
+65,PA,Pennsylvania,42,015,8,Bradford,Bradford County,H1,US-PA-015
+66,PA,Pennsylvania,42,017,9,Bucks,Bucks County,H1,US-PA-017
