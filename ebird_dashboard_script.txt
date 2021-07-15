@@ -1,0 +1,504 @@
+import pandas as pd
+import numpy as np
+from datetime import date
+from datetime import timedelta
+import re
+from sqlalchemy import create_engine
+from dash.dependencies import Input, Output
+import dash_core_components as dcc
+import dash_html_components as html
+import sqlite3
+import dash
+import dash_table
+import plotly.express as px
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import geopandas
+import collections, functools, operator
+import itertools
+import dash_bootstrap_components as dbc
+
+# establish connection to sqlite database created in get_data.py
+conn = sqlite3.connect("C:/Users/mikea/Documents/Python Practice/PA_County_Dashboards/Data/save_pandas.db")
+cur = conn.cursor()
+
+# set color theme for the page
+colors = {
+    'background': '#FBFBFB',
+    'text': '#212F3C'
+}
+
+# bring in taxonomy database containing species information, species codes, etc.
+PA_taxonomy_df = pd.read_csv(r'C:\Users\mikea\Documents\Python Practice\PA_County_Dashboards\Data\PA_taxonomy.csv')
+
+# this is the main data frame containing all information from the 'sightings' table
+df = pd.read_sql_query("select * from Sightings1;", conn)
+
+# establishing data types
+df['howMany'] = pd.to_numeric(df['howMany'])
+df['obsDt'] = pd.to_datetime(df['obsDt'])
+df['date'] = pd.to_datetime(df['date'])
+
+# aggregating the data by number of sightings and time of day
+species_sums_with_time = df.groupby([
+    'comName', 'timeOfDay'
+    ]).agg(sightingCount=('howMany', sum))
+
+species_sums_with_time['sightingCount'] = species_sums_with_time['sightingCount'].fillna(0)
+species_sums_with_time = species_sums_with_time.reset_index()
+
+# aggregating the data by sighting count for the entire day (without time designation)
+species_sums_without_time = species_sums_with_time.groupby(['comName'])['sightingCount'].agg('sum').reset_index()
+
+# creating list containing the links to the individual eBird species pages
+bare_link = 'https://ebird.org/species/'
+species_df_for_dict = pd.merge(species_sums_with_time, PA_taxonomy_df, on='comName')
+species_df_for_dict = species_df_for_dict.groupby(['comName', 'speciesCode'])['sightingCount'].agg('sum').reset_index()
+species_df_for_dict = species_df_for_dict.sort_values(by='sightingCount', ascending=False).reset_index()
+species_df_for_dict = species_df_for_dict.drop(columns=['index'])
+species_df_for_dict['link'] = bare_link + species_df_for_dict.speciesCode.map(str)
+species_df_for_dict = species_df_for_dict.nlargest(20,'sightingCount')
+species_df_for_dict = species_df_for_dict[['comName', 'link']]
+specie_df_links = species_df_for_dict['link'].tolist()
+
+# Figure 1 - sighting counts by time of day (top 20 overall species counts)
+fig = px.bar(species_sums_with_time,
+             x='comName',
+             y='sightingCount',
+             color='timeOfDay',
+             barmode='stack',
+             labels={
+                 "comName": "Species Name",
+                 "sightingCount": "Bird Count",
+             },
+             title="Top 20 Species Sightings (by count) by Time of Day",
+             template="seaborn",
+             height=500
+             )
+
+minc = 0
+
+if species_sums_with_time['sightingCount'].max() < 500:
+    maxc = species_sums_with_time['sightingCount'].max()
+else:
+    maxc = 1000
+
+fig.update_layout(yaxis_autorange=False)
+fig.update_layout(yaxis_range=[minc, maxc])
+
+fig.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
+fig.update_layout(xaxis_tickangle=-45)
+fig.update_layout(xaxis=dict(range=[-0.5, 19.5]))
+fig.update_layout(paper_bgcolor=colors['background'])
+fig.update_layout(
+    title={
+        'y':0.98,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'},
+        margin=dict(
+        b=200,
+        t=0,
+        pad=10
+    )
+)
+
+# df for second figure created. aggregating by location name and species name, get number of species seen per location
+public_records_df = df[df['locationPrivate'] != 'True']
+public_records_counts_df = public_records_df.groupby(['locName', 'comName']).size().reset_index(name="visitCounts")
+public_records_counts_df.set_index(['locName', 'comName'], inplace=True)
+public_records_counts_df = public_records_counts_df.reset_index()
+public_records_counts_df = public_records_counts_df['locName'].value_counts().reset_index()
+public_records_counts_df.columns = ['locName', 'speciesCount']
+
+# creating list containing the links to the individual eBird hot spot/location pages
+bare_link_hotspot = 'https://ebird.org/hotspot/'
+hotspot_df_for_dict = pd.merge(public_records_counts_df, public_records_df, on='locName')
+hotspot_df_for_dict = hotspot_df_for_dict.groupby(['locName', 'locId'])['speciesCount'].agg('sum').reset_index()
+hotspot_df_for_dict = hotspot_df_for_dict.sort_values(by='speciesCount', ascending=False).reset_index()
+hotspot_df_for_dict = hotspot_df_for_dict.drop(columns=['index'])
+hotspot_df_for_dict = hotspot_df_for_dict.nlargest(20, 'speciesCount')
+hotspot_df_for_dict['link'] = bare_link_hotspot + hotspot_df_for_dict.locId.map(str)
+hotspot_df_for_dict = hotspot_df_for_dict[['locName', 'link']]
+hotspot_df_links = species_df_for_dict['link'].tolist()
+
+# figure 2 - number of species sighted at each hot spot (top 20)
+fig2 = px.bar(public_records_counts_df,
+             x='locName',
+             y='speciesCount',
+             color='speciesCount',
+             barmode='stack',
+             labels={
+                 "locName": "Hotspot Name",
+                 "speciesCount": "Number of Species",
+             },
+             title="Top 20 Hotspots by Number of Species Sighted",
+             template="seaborn",
+             height=500,
+             color_continuous_scale=px.colors.sequential.Viridis
+             )
+fig2.update_layout(barmode='stack', xaxis={'categoryorder':'total descending'})
+fig2.update_layout(xaxis_tickangle=-50)
+fig2.update_layout(showlegend=False)
+fig2.update_layout(xaxis=dict(range=[-0.5, 19.5]))
+fig2.update_layout(paper_bgcolor=colors['background'])
+fig2.update_layout(
+    title={
+        'y':0.98,
+        'x':0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'},
+    margin=dict(
+        b=280,
+        t=0,
+        pad=10
+    ),
+)
+
+# establishing connections to the 'notable sightings' data frame - contains information around rare bird sightings
+notable_df = pd.read_sql_query("select * from NotableSightings;", conn)
+
+# using geopandas to create a geodataframe
+notable_gdf = geopandas.GeoDataFrame(
+    notable_df, geometry=geopandas.points_from_xy(notable_df.lng, notable_df.lat))
+
+# establishing data types and sorting by date
+notable_gdf['howMany'] = notable_gdf['howMany'].fillna('1')
+notable_gdf["howMany"] = pd.to_numeric(notable_gdf["howMany"])
+notable_gdf["lat"] = pd.to_numeric(notable_gdf["lat"])
+notable_gdf["lng"] = pd.to_numeric(notable_gdf["lng"])
+notable_gdf = notable_gdf.sort_values(by='date')
+
+# set min/max dates for xaxis of bubble map plot
+min_date = notable_gdf.date.min()
+max_date = notable_gdf.date.max()
+
+# figure 5 - rare sightings by day bubble map
+fig5 = px.scatter_mapbox(notable_gdf, lat="lat", lon="lng", animation_frame="date",
+            size="howMany", color="comName", hover_name="comName", range_color=(0,20),
+            hover_data=["locName", "obsDt", "howMany"], zoom=8.5)
+fig5.update_layout(title="Rarities - Time-Series Graph")
+fig5.update_layout(mapbox_style="open-street-map")
+fig5.update_layout(xaxis={'type': 'date'})
+fig5.update_layout(xaxis={'dtick' : 86400000.0 * 30})
+fig5.update_layout(legend={'itemsizing': 'constant'})
+fig5.update_layout(transition={'duration': 30})
+fig5.update_xaxes(range=[min_date, max_date])
+fig5.update_layout(paper_bgcolor=colors['background'])
+
+# creating list of individual unique species sighted in pennsylvania for fig 3 below
+species_unique_list = []
+species_unique_list = df['comName'].unique()
+species_unique_list = sorted(species_unique_list)
+species_counts_df = df.groupby(['comName', 'date'])['howMany'].agg('sum').reset_index()
+#species_counts_df.to_csv(r'C:/Users/mikea/Documents/Python Practice/test.csv', index = False)
+# defining app
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+# set app layout parameters
+app.layout = html.Div(style={'backgroundColor': colors['background']}, children=[
+    html.H1(children='ChesCo Weekly Birder Dashboard', style={
+        'textAlign': 'center',
+        'color': colors['text'],
+        'fontSize': 48,
+        'font-family': 'monospace'
+    }),
+
+    html.Div(children='''
+        Data sourced from eBird on: 03Sep2020.
+    ''', style={
+        'textAlign': 'center',
+        'color': colors['text'],
+        'fontSize': 18
+    }),
+
+    html.H1(children='''
+    Barcharts:
+    ''', style={
+        'textAlign': 'left',
+        'color': colors['text'],
+        'fontSize': 32,
+        'marginTop': '1em',
+        'marginBottom': '1em'
+    }),
+
+    html.Div(children=[
+        html.Div(
+            dcc.Graph(
+                figure=fig,
+                style={'width': '600'}
+            ), style={'display': 'inline'})]),
+
+    html.Div(children=['''Learn more about these birds (right click > open in new tab): ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][0], href = species_df_for_dict['link'][0]),
+            style={'display': 'inline'}), ''', ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][1], href = species_df_for_dict['link'][1]),
+            style={'display': 'inline'}), ''', ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][2], href=species_df_for_dict['link'][2]),
+            style={'display': 'inline'}), ''', ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][3], href=species_df_for_dict['link'][3]),
+            style={'display': 'inline'}), ''', ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][4], href=species_df_for_dict['link'][4]),
+            style={'display': 'inline'}), ''', ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][5], href=species_df_for_dict['link'][5]),
+            style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][6], href=species_df_for_dict['link'][6]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][7], href=species_df_for_dict['link'][7]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][8], href=species_df_for_dict['link'][8]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][9], href=species_df_for_dict['link'][9]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][10], href=species_df_for_dict['link'][10]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][11], href=species_df_for_dict['link'][11]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][12], href=species_df_for_dict['link'][12]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][13], href=species_df_for_dict['link'][13]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][14], href=species_df_for_dict['link'][14]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][15], href=species_df_for_dict['link'][15]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][16], href=species_df_for_dict['link'][16]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][17], href=species_df_for_dict['link'][17]),
+           style={'display': 'inline'}), ''', ''',
+       html.Div(
+           dcc.Link(species_df_for_dict['comName'][18], href=species_df_for_dict['link'][18]),
+           style={'display': 'inline'}), ''', ''',
+        html.Div(
+            dcc.Link(species_df_for_dict['comName'][19], href=species_df_for_dict['link'][19]),
+            style={'display': 'inline'})]), ''' ''',
+
+    html.Div(children=[
+        html.Div(
+            dcc.Graph(
+                figure=fig2,
+                style={'width': '600', 'marginTop': '4em'}
+            ), style={'display': 'inline'})]),
+
+    html.Div(children=['''Learn more about these locations (right click > open in new tab): ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][0], href=hotspot_df_for_dict['link'][0]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][1], href=hotspot_df_for_dict['link'][1]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][2], href=hotspot_df_for_dict['link'][2]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][3], href=hotspot_df_for_dict['link'][3]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][4], href=hotspot_df_for_dict['link'][4]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][5], href=hotspot_df_for_dict['link'][5]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][6], href=hotspot_df_for_dict['link'][6]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][7], href=hotspot_df_for_dict['link'][7]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][8], href=hotspot_df_for_dict['link'][8]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][9], href=hotspot_df_for_dict['link'][9]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][10], href=hotspot_df_for_dict['link'][10]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][11], href=hotspot_df_for_dict['link'][11]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][12], href=hotspot_df_for_dict['link'][12]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][13], href=hotspot_df_for_dict['link'][13]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][14], href=hotspot_df_for_dict['link'][14]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][15], href=hotspot_df_for_dict['link'][15]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][16], href=hotspot_df_for_dict['link'][16]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][17], href=hotspot_df_for_dict['link'][17]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][18], href=hotspot_df_for_dict['link'][18]),
+               style={'display': 'inline'}), ''', ''',
+           html.Div(
+               dcc.Link(hotspot_df_for_dict['locName'][19], href=hotspot_df_for_dict['link'][19]),
+               style={'display': 'inline'})]), ''' ''',
+
+    html.Div(children='''
+    Select from the dropdown below...
+    ''', style={
+        'textAlign': 'left',
+        'color': colors['text'],
+        'fontSize': 20,
+        'marginTop': '4em'
+    }),
+
+    dcc.Dropdown(
+        id='yaxis-column',
+        options=[{'label': i, 'value': i} for i in species_unique_list],
+        value=species_unique_list[0],
+        style={'marginTop': '2em', 'width': '50%', 'marginLeft': '2em'}
+    ),
+
+    html.Div(children=[
+        html.Div(
+            dcc.Graph(
+                id='indicator-graphic',
+                style={'width': '600', 'marginTop': '1em'}
+            ), style={'display': 'inline'})]),
+
+    html.H1(children='''
+    Geographical Analysis and Maps:
+    ''', style={
+        'textAlign': 'left',
+        'color': colors['text'],
+        'fontSize': 32,
+        'marginTop': '2em',
+        'marginBottom': '1em'
+    }),
+
+    dcc.Dropdown(
+        id='yaxis-column_1',
+        options=[{'label': i, 'value': i} for i in species_unique_list],
+        value=species_unique_list[0],
+        style={'marginTop': '2em', 'width': '50%', 'marginLeft': '2.5em'}
+    ),
+    dcc.Graph(id='indicator-graphic-2',
+              style={'marginBottom': '1em', 'width': '80%', 'align': 'left', 'display': 'inline', 'height': 400}),
+
+    dcc.Graph(
+        id='example-graph5',
+        figure=fig5,
+        style={'marginBottom': '3em', 'width': '80%', 'align': 'right', 'display': 'inline', 'height': 400}
+    )
+])
+
+# setting up callback for interactive plot
+@app.callback(
+    Output('indicator-graphic', 'figure'),
+    [Input('yaxis-column', 'value')])
+# defining function for updating the plot based on user selection in dropdown
+def update_graph(yaxis_column_name):
+    # data frame containing unique
+    updated_df = species_counts_df[species_counts_df['comName'] == yaxis_column_name]
+    # figure 3 - number of sightings by species for each day of the week w. interactive species selection
+    data = updated_df
+    graph_data1 = go.Bar(x=updated_df['date'],
+                         y=updated_df['howMany'],
+                         hoverinfo='y',
+                         width=1000 * 60 * 60 * 24 * 0.8
+                         )
+    x=updated_df['date']
+    y=updated_df['howMany']
+    barmode='overlay'
+    layout = go.Layout(barmode=barmode,
+                           title='Sightings by Day for Past Week')
+    fig3 = go.Figure(data=graph_data1, layout=layout)
+
+    fig3.update_layout(
+        title={
+            'y': 0.98,
+            'x': 0.5,
+            'xanchor': 'center',
+            'yanchor': 'top'},
+        margin=dict(
+            b=280,
+            t=100,
+            pad=10
+        ),
+    )
+    #minc = updated_df['howMany'].min()
+    if updated_df['howMany'].max() < 500:
+        maxc = updated_df['howMany'].max()
+    else:
+        maxc = 1000
+    minc = 0
+    min = species_counts_df['date'].min() - timedelta(days=1)
+    max = species_counts_df['date'].max() + timedelta(days=1)
+    min = min.date()
+    max = max.date()
+
+    fig3.update_layout(xaxis_autorange = False)
+    fig3.update_layout(yaxis_autorange=False)
+    fig3.update_layout(xaxis_range =[min, max])
+    fig3.update_layout(yaxis_range=[minc, maxc])
+    fig3.update_layout(margin={'l': 40, 'b': 40, 't': 10, 'r': 0}, hovermode='closest')
+    fig3.update_layout(paper_bgcolor=colors['background'])
+    fig3.update_layout(bargap=0.5),
+    fig3.update_xaxes(type='date')
+
+    return fig3
+
+
+sightings_gdf = geopandas.GeoDataFrame(
+    df, geometry=geopandas.points_from_xy(df.lng, df.lat))
+
+sightings_gdf['howMany'] = sightings_gdf['howMany'].fillna('1')
+sightings_gdf["howMany"] = pd.to_numeric(sightings_gdf["howMany"])
+sightings_gdf["lat"] = pd.to_numeric(sightings_gdf["lat"])
+sightings_gdf["lng"] = pd.to_numeric(sightings_gdf["lng"])
+
+
+sightings_gdf_grouped = sightings_gdf.groupby(['comName', 'lat',
+                                               'lng', 'locName'])['howMany'].agg('sum').reset_index()
+
+
+@app.callback(
+    Output('indicator-graphic-2', 'figure'),
+    [Input('yaxis-column_1', 'value')])
+def update_graph_2(yaxis_column_name_1):
+
+    updated_gdf = sightings_gdf_grouped[sightings_gdf_grouped['comName'] == yaxis_column_name_1]
+
+    max_sightings = updated_gdf['howMany'].max()
+    min_sightings = updated_gdf['howMany'].min()
+
+    fig6 = px.scatter_mapbox(updated_gdf, lat="lat", lon="lng",
+                             size="howMany", color="howMany", hover_name="comName",
+                             range_color=(min_sightings, max_sightings),
+                             hover_data=["locName", "howMany"], zoom=8.5)
+    fig6.update_layout(title="Species - Sightings This Week (Select from dropdown)")
+    fig6.update_layout(mapbox_style="open-street-map")
+    fig6.update_layout(paper_bgcolor=colors['background'])
+
+    return fig6
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
+

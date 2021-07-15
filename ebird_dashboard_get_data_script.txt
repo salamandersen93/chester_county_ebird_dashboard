@@ -1,0 +1,107 @@
+import pandas as pd
+import re
+from ebird.api import get_species_observations
+from sqlalchemy import create_engine
+from sqlalchemy.types import NVARCHAR
+from ebird.api import get_notable_observations
+
+engine = create_engine('sqlite:///C:/Users/mikea/Documents/Python Practice/PA_County_Dashboards/Data/save_pandas.db',
+                       echo=True)
+sqlite_connection = engine.connect()
+
+fips_data = pd.read_csv(r'C:\Users\mikea\Documents\Python Practice\PA_County_Dashboards\Data\fips_data_updated.csv')
+print('got fips data. ')
+
+PA_taxonomy_df = pd.read_csv(r'C:\Users\mikea\Documents\Python Practice\PA_County_Dashboards\Data\PA_taxonomy.csv')
+print('got taxonomy')
+
+specCodeList = PA_taxonomy_df['speciesCode'].tolist()
+regex = re.compile('[@_!#$%^&*()<>?/\|}{~:]')
+for i in range(len(specCodeList)):
+    specCodeList[i] = re.sub('[^A-Za-z0-9]+', '_', specCodeList[i])
+print('got spec code list. ')
+
+county_user_input = "Chester" #this would be a dropdown in Flask
+county_code_translated = fips_data.loc[fips_data['county'] == county_user_input, 'full_fips_code'].item()
+print('translated county codes. ')
+
+
+api_key = 'aape5hn8f10a'
+def append_sightings(start, stop): # use this sparingly, data is expensive
+    for i in range(start, stop):
+        try: # ignore bad requests (404 errors)
+            j = get_species_observations(api_key, specCodeList[i], county_code_translated, back=7)
+            records.append(j)
+        except:
+            i = i+1
+
+records=[]
+i = 0
+j = 30
+
+for n in range(len(specCodeList)):
+    append_sightings(i, j)
+    i += 30
+    j += 30
+print('appended sightings. ')
+
+records_list = [x for x in records if x] # removes empty lists (unsighted species, i.e. no records available)
+print('assigned to list. ')
+
+# Creates DataFrame.
+records_df = pd.DataFrame(columns = ['speciesCode', 'comName', 'sciName', 'locId', 'howMany',
+                                     'locName', 'obsDt', 'obsReviewed', 'locationPrivate', 'subId'])
+
+for i in range(len(records_list)):
+    df = pd.DataFrame(records_list[i])
+    records_df = records_df.append(df)
+records_df = records_df.dropna()
+print('saved to dataframe. ')
+
+familyNamesDict = pd.Series(PA_taxonomy_df.familyComName.values,index=PA_taxonomy_df.comName).to_dict()
+records_df["familyComName"] = records_df["comName"].map(familyNamesDict)
+
+
+# convert obsDt to datetime
+records_df['obsDt'] =  pd.to_datetime(records_df['obsDt'], format='%Y-%m-%d %H:%M')
+records_df['date'] = pd.to_datetime(records_df['obsDt']).dt.to_period('d')
+records_df['time'] = pd.to_datetime(records_df['obsDt'], format='%H:M').dt.time
+records_df['hour'] = pd.to_datetime(records_df['obsDt']).dt.hour
+print('atomized datetime values. ')
+
+b = [0,4,8,12,16,20,24]
+l = ['12AM-4AM', '4AM-8AM','8AM-12PM','12PM-4PM','4PM-8PM','8PM-12AM']
+records_df['timeOfDay'] = pd.cut(records_df['hour'], bins=b, labels=l, include_lowest=True)
+records_df = records_df.applymap(str)
+print('converted all to strings. ')
+
+
+sqlite_table = "Sightings1"
+records_df.to_csv('C:/Users/mikea/Desktop/eBird_data.csv')
+records_df.to_sql(sqlite_table, sqlite_connection, if_exists='replace')
+print('complete')
+
+
+# now acquiring notable sightings and inserting into separate table
+
+notable_records = get_notable_observations(api_key, county_code_translated, back=7)
+notable_records = [x for x in notable_records if x]
+
+# Creates DataFrame.
+notable_records_df = pd.DataFrame(columns=['speciesCode', 'comName', 'sciName', 'locId', 'howMany',
+                                     'locName', 'obsDt', 'obsReviewed', 'locationPrivate', 'subId', 'lat', 'lng'])
+df = pd.DataFrame(notable_records)
+notable_records_df = notable_records_df.append(df)
+notable_records_df = notable_records_df.dropna()
+
+notable_records_df['obsDt'] = pd.to_datetime(notable_records_df['obsDt'], format='%Y-%m-%d %H:%M')
+notable_records_df['date'] = pd.to_datetime(notable_records_df['obsDt']).dt.to_period('d')
+notable_records_df['time'] = pd.to_datetime(notable_records_df['obsDt'], format='%H:M').dt.time
+notable_records_df['hour'] = pd.to_datetime(notable_records_df['obsDt']).dt.hour
+print('atomized datetime values. ')
+
+notable_records_df = notable_records_df.applymap(str)
+notable_records_df.to_csv('C:/Users/mikea/Desktop/notable_eBird_data.csv')
+
+sqlite_table_notable = "NotableSightings"
+notable_records_df.to_sql(sqlite_table_notable, sqlite_connection, if_exists='replace')
